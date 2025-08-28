@@ -41,7 +41,7 @@ Example: Estimated treatment effect using multiple causal methods.
 ---
 
 ## How to View 
-- [View interactive poster (HTML)](./Final_Poster.html)
+- [View interactive poster (HTML)](./index.html)
 - [Download PDF Poster](./Stat_Poster.pdf)  
 
 ---
