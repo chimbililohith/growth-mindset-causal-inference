@@ -36,7 +36,7 @@ The project applies **modern causal inference techniques** to evaluate the impac
 
 ## Preview
 Example: Estimated treatment effect using multiple causal methods.  
-![ATE Results](figs/ATE_results.png)
+![ATE Results](ATE_results.png)
 
 ---
 
