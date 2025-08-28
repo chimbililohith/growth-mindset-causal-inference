@@ -7,6 +7,37 @@ The project applies **modern causal inference techniques** to evaluate the impac
 
 ---
 
+## Dataset Description
+
+The original experiment randomly assigned **10,000 students** to treatment and control groups across **76 U.S. public high schools**.  
+
+For this project, a **synthetic dataset** was generated to mimic the structure of the original study, but it should be considered **observational** (not experimental).  
+
+### Covariates
+
+- **Student-level**  
+  - `selfrpt`: Student’s self-reported expectations for success in the future (proxy for prior achievement, measured pre-treatment)  
+  - `race`: Student race/ethnicity *(categorical)*  
+  - `gender`: Student’s identified gender *(categorical)*  
+  - `fgen`: Indicator for first-generation college student *(binary)*  
+
+- **School-level**  
+  - `urban`: Urbanicity of the school *(categorical)*  
+  - `mindset`: School-level mean of students’ fixed mindsets, measured prior to treatment  
+  - `test`: School-level achievement (test scores & college preparation of prior four cohorts)  
+  - `sch_race`: Racial/ethnic minority composition  
+  - `pov`: Poverty concentration (% of students below the federal poverty line)  
+  - `size`: Total number of students across all four grade levels  
+
+### Treatment & Outcome
+- `Z`: Treatment indicator (whether the student received the growth mindset nudge-like intervention)  
+- `Y`: Continuous measure of student achievement  
+
+### Goal
+The objective of this project is to **estimate the average treatment effect (ATE)** of the growth mindset intervention on student achievement — i.e., the causal effect of `Z` on `Y`.  
+
+---
+
 ## Highlights
 - Built a **synthetic observational dataset** modeled on the National Study of Learning Mindsets.
 - Applied **OLS, Inverse Probability Weighting (IPW), Augmented IPW (AIPW), and Propensity Score Stratification**.
@@ -20,8 +51,8 @@ The project applies **modern causal inference techniques** to evaluate the impac
 - `Final_Poster.Rmd` — R Markdown source file.  
 - `Final_Poster.html` — Interactive version of the poster.  
 - `Stat_Poster.pdf` — Final poster for presentation.  
-- `data/` — Synthetic dataset or script to generate data.  
-- `figs/` — Key plots (covariate balance, density, ATE results).
+- `data.csv` — Synthetic dataset or script to generate data.  
+- `ATE_results.png` — ATE results.
 
 ---
 
