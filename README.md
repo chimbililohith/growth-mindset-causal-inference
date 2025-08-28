@@ -21,7 +21,7 @@ The project applies **modern causal inference techniques** to evaluate the impac
 - `Final_Poster.html` — Interactive version of the poster.  
 - `Stat_Poster.pdf` — Final poster for presentation.  
 - `data/` — Synthetic dataset or script to generate data.  
-- `figs/` — Key plots (covariate balance, density, ATE results).  
+- `figs/` — Key plots (covariate balance, density, ATE results).
 
 ---
 
