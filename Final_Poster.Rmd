@@ -1,0 +1,622 @@
+---
+title: "Final_Poster"
+output: html_document
+date: "2025-05-10"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r}
+# Load required libraries
+library(tidyverse)  # For data wrangling and ggplot2
+library(ggplot2)    # For visualization (included in tidyverse)
+
+# Load the dataset
+data <- read.csv("data.csv")
+
+# Boxplot of outcome (Y) by treatment (Z)
+# This helps compare the median, spread, and potential outliers between treated and control groups
+data %>%
+  ggplot(aes(x = as.factor(z), y = y)) + 
+  geom_boxplot() +
+  labs(title = "Boxplot of Outcome (Y) by Treatment Group",
+       x = "Treatment (Z)", y = "Outcome (Y)")
+
+# Density plot of outcome (Y) by treatment (Z)
+# This provides a smooth view of the distribution of Y for treated vs control groups
+ggplot(data, aes(x = y, fill = as.factor(z))) +
+  geom_density(alpha = 0.4) +  # alpha controls transparency
+  labs(title = "Distribution of Outcome (Y) by Treatment (Z)",
+       x = "Outcome (Y)", fill = "Treatment") +
+  theme_minimal()  # cleaner theme for plots
+
+```
+Rightward shift in Treated group:
+The distribution for Z = 1 (treated group) is slightly shifted to the right, indicating higher values of Y on average. This suggests a positive effect of the treatment on the outcome.
+Visually, the treated group (z = 1) seems to have a higher median outcome and slightly greater spread than the control group
+This suggests a positive association between receiving the intervention and higher achievement — a good initial sign that the treatment might be effective.
+
+Now let's convert the covariates which are factors as factors:
+
+```{r}
+# Convert selected categorical variables to factor
+data <- data %>%
+  mutate(
+    selfrpt = as.factor(selfrpt),
+    race = as.factor(race),
+    gender = as.factor(gender),
+    fgen = as.factor(fgen),
+    urban = as.factor(urban)
+  )
+```
+
+Now let's see how cobvariates are changing with Y:
+```{r}
+# Load patchwork to arrange ggplot figures
+library(patchwork)
+
+# Define categorical covariates of interest (all are student-level variables)
+covariates <- c("selfrpt", "race", "gender", "fgen", "urban")
+
+# Create an empty list to store plots
+plots <- list()
+
+# Loop over each categorical covariate to generate boxplots for treatment vs control
+for (i in 1:length(covariates)) {
+  
+  # Current variable name
+  var <- covariates[i]
+  
+  # Boxplot of Y by covariate for the treated group (Z = 1)
+  plot_treated <- data %>%
+    filter(z == 1) %>%
+    ggplot(aes(x = .data[[var]], y = y)) +
+    geom_boxplot() +
+    labs(title = paste(var, "- Treated (z = 1)")) +
+    theme_minimal()
+  
+  # Boxplot of Y by covariate for the control group (Z = 0)
+  plot_control <- data %>%
+    filter(z == 0) %>%
+    ggplot(aes(x = .data[[var]], y = y)) +
+    geom_boxplot() +
+    labs(title = paste(var, "- Controlled (z = 0)")) +
+    theme_minimal()
+  
+  # Combine treated and control plots vertically using patchwork
+  plots[[i]] <- plot_treated / plot_control
+}
+
+# You can now view all plots with: wrap_plots(plots)
+```
+higher self-reported expectations (selfrpt) seem associated with slightly increased achievement
+Also the controlled groups and treatement groups trends are similar for all categorical covariates and we can see self reported expectations people are more intelligent at end. Also urban and rural have some effect.
+
+```{r}
+# Load required libraries
+library(ggplot2)   # For general plotting
+library(GGally)    # For ggcorr correlation plot
+
+# Select only numeric covariates for correlation analysis
+numeric_covs <- data %>%
+  select(where(is.numeric), -z, -y)  # Remove treatment (z) and outcome (y) from the correlation matrix
+
+# Generate a correlation matrix plot
+ggcorr(numeric_covs,
+       label = TRUE,         # Display correlation coefficients on the plot
+       label_round = 2,      # Round labels to 2 decimal places
+       label_size = 3,       # Font size for labels
+       name = "Correlation"  # Legend title
+) +
+  ggtitle("Correlation Matrix of Numeric Covariates")  # Plot title
+```
+Pair | Correlation | Interpretation
+mindset & test | -0.48 | Schools with lower fixed mindsets tend to have higher test scores — aligns with the theory that growth mindsets are linked to better academic performance.
+mindset & size | -0.49 | Larger schools tend to have more fixed mindsets — may indicate school culture effects.
+test & sch_race | -0.48 | Schools with higher minority composition tend to have lower test scores.
+test & pov | -0.42 | Higher poverty concentration is associated with lower test scores.
+test & size | +0.48 | Larger schools tend to have higher test scores — possibly due to resource concentration or district effects.
+mindset & sch_race | +0.42 | Schools with higher minority composition have higher fixed mindset scores (i.e., lower growth mindset) — suggests cultural and structural differences in mindset environments.
+
+```{r}
+# Group the data by treatment assignment (z) and calculate the mean of the outcome (y) within each group
+treatement <- data %>%
+  group_by(z) %>%
+  summarise(y_mean = mean(y))
+
+# Calculate the crude (unadjusted) difference in means: treated group mean - control group mean
+treatement_hat <- treatement$y_mean[2] - treatement$y_mean[1]
+
+# Print the unadjusted estimate of the average treatment effect (ATE)
+print(treatement_hat)
+```
+
+
+```{r}
+# Calculate the standard deviation of outcome (y) separately for treated (z=1) and control (z=0) groups
+treatement_sd <- data %>%
+  group_by(z) %>%
+  summarise(y_sd = sd(y)) %>%
+  ungroup()
+
+# Create separate datasets for treated and control groups
+z_0 <- data %>% filter(z == 0)  # Control group
+z_1 <- data %>% filter(z == 1)  # Treated group
+
+# Compute the standard error for the difference in means using pooled standard deviations
+# Formula: sqrt( (sd_treated^2 / n_treated) + (sd_control^2 / n_control) )
+sd <- sqrt((treatement_sd$y_sd[2])^2 / nrow(z_1) +
+           (treatement_sd$y_sd[1])^2 / nrow(z_0))
+
+# Compute the z-statistic: (difference in means) / (standard error)
+treatement_sd_hat <- treatement_hat / sd
+
+# Print the z-statistic
+print(treatement_sd_hat)
+```
+
+```{r}
+# Compute the 95% Confidence Interval (CI) for the unadjusted difference in means (treatment effect)
+# Using the standard normal critical value of 1.96 for 95% confidence
+
+ci_lower <- treatement_hat - 1.96 * sd  # Lower bound of the CI
+ci_upper <- treatement_hat + 1.96 * sd  # Upper bound of the CI
+
+# Display the confidence interval as a numeric vector
+c(ci_lower, ci_upper)
+```
+
+```{r}
+# Load the cobalt package for covariate balance diagnostics
+library(cobalt)
+
+# Define the covariates to assess balance on
+covariates <- c("selfrpt", "race", "gender", "fgen", "urban",
+                "mindset", "test", "sch_race", "pov", "size")
+
+# Construct a formula for the treatment assignment model
+# This is used to check balance of covariates between treatment (z = 1) and control (z = 0)
+fml <- as.formula(paste("z ~", paste(covariates, collapse = " + ")))
+
+# Create a balance table WITHOUT any weighting or matching yet
+# This reflects the raw, unadjusted differences in covariates
+bal <- bal.tab(fml, data = data, estimand = "ATE")
+
+# Create a Love plot to visualize standardized mean differences
+# Red points show the degree of imbalance for each covariate
+love.plot(bal,
+          threshold = 0.05,     # Draw a vertical line at |0.05| as the imbalance threshold
+          abs = TRUE,          # Show absolute standardized differences
+          var.order = "unadjusted",  # Keep the order as-is (unadjusted ordering)
+          stars = "raw",       # Show significance stars based on raw data
+          colors = c("red"),   # Use red color for visual emphasis
+          title = "Covariate Balance Before Adjustment")
+
+```
+
+```{r}
+# Create a Love plot without weights using raw covariate values
+# This visualizes the standardized mean differences between treatment groups
+
+love.plot(
+  x = subset(data, select = c(selfrpt, race, gender, fgen, urban,
+                              mindset, test, sch_race, pov, size)),  # Covariates of interest
+  treat = data$z,              # Treatment indicator variable
+  abs = TRUE                   # Plot absolute standardized differences
+) +
+  theme(legend.position = "none")  # Remove legend for cleaner visualization
+```
+
+```{r}
+# Generate a balance table (summary of covariate differences between treatment groups)
+# using the raw covariate values and the treatment indicator
+
+bal.tab(
+  x = subset(data, select = c(selfrpt, race, gender, fgen, urban,
+                              mindset, test, sch_race, pov, size)),  # Covariates of interest
+  treat = data$z                 # Binary treatment indicator (0 = control, 1 = treated)
+)
+
+```
+
+```{r}
+# Define the categorical variables to be converted to numeric for histogram plotting
+vars_to_convert <- c("selfrpt", "race", "gender", "fgen", "urban")
+
+# Convert factor variables to numeric using mutate + across
+# This is needed because ggplot2 histograms require numeric inputs
+data <- data %>%
+  mutate(across(all_of(vars_to_convert), ~ as.numeric(as.character(.))))
+
+# List of variables to include in histogram plots (all now numeric)
+hist_covariates <- c("selfrpt", "race", "gender", "fgen", "urban")
+
+# Create an empty list to store histogram plots
+hist_plots <- list()
+
+# Loop through each covariate and create a histogram split by treatment group (z)
+for (i in seq_along(hist_covariates)) {
+  var <- hist_covariates[i]
+  
+  # Create histogram for the current covariate, colored by treatment status
+  hist_plots[[i]] <- ggplot(data, aes(x = .data[[var]], fill = as.factor(z))) +
+    geom_histogram(position = "dodge", bins = 7, color = "black") +  # separate bars by group
+    scale_fill_manual(
+      values = c("gray70", "skyblue"),  # custom colors
+      name = "Treatment Group",
+      labels = c("Control", "Treatment")
+    ) +
+    labs(
+      title = paste("Distribution of", var, "by Treatment Group"),
+      x = var,
+      y = "Count"
+    ) +
+    theme_minimal()
+}
+
+# Display all histograms together using patchwork
+wrap_plots(hist_plots)
+
+```
+
+```{r}
+# Load patchwork to combine multiple ggplot2 plots
+library(patchwork)
+
+# List of continuous school-level covariates for comparison by treatment group
+covariates <- c("mindset", "test", "sch_race", "pov", "size")
+
+# Initialize empty list to store plots
+plots <- list()
+
+# Loop over each covariate to create boxplots grouped by treatment
+for(i in seq_along(covariates)) {
+  var <- covariates[i]  # current variable
+  
+  # Create a boxplot of the variable by treatment group
+  plots[[i]] <- ggplot(data, aes(x = as.factor(z), y = .data[[var]], fill = as.factor(z))) +
+    geom_boxplot() +
+    scale_fill_manual(
+      values = c("gray70", "skyblue"),  # Colors for control and treatment
+      name = "Treatment Group",
+      labels = c("Control", "Treatment")
+    ) +
+    scale_x_discrete(labels = c("Control", "Treatment")) +  # Custom x-axis labels
+    labs(
+      title = paste("Boxplot of", var, "by Treatment Group"),
+      x = "Group",
+      y = var
+    ) +
+    theme_minimal()
+}
+
+# Display all boxplots in a grid layout
+wrap_plots(plots)
+
+```
+
+```{r}
+# Fit a simple linear regression model to estimate the unadjusted effect of treatment (z) on outcome (y)
+model <- lm(y ~ z, data)
+
+# Display the summary of the model including coefficient estimates and standard errors
+summary(model)
+
+# Load the 'car' package if not already loaded (for robust variance estimation)
+# install.packages("car")  # Uncomment if needed
+library(car)
+
+# Compute the robust (heteroskedasticity-consistent) variance estimator for the treatment coefficient
+# Using HC2 estimator which adjusts for leverage (small-sample bias correction)
+# This returns the robust variance of the treatment coefficient (z)
+car::hccm(model, type = "hc2")[2, 2]
+
+```
+
+```{r}
+# Convert selected variables back to factor type (if previously changed to numeric)
+# This ensures proper encoding in the logistic regression model for propensity scores
+data <- data %>%
+  mutate(
+    selfrpt = as.factor(selfrpt),
+    race = as.factor(race),
+    gender = as.factor(gender),
+    fgen = as.factor(fgen),
+    urban = as.factor(urban)
+  )
+
+# Estimate propensity scores using logistic regression
+# Predict the probability of treatment assignment (z) given all covariates
+# The outcome y is excluded to avoid post-treatment bias
+ps_model <- glm(z ~ . - y, data = data, family = binomial)
+
+# Extract the predicted probabilities (i.e., propensity scores)
+p_scores <- ps_model$fitted.values
+
+# Store the outcome and treatment variables
+Y <- data$y
+W <- data$z
+
+# Compute the Inverse Probability Weighting (IPW) estimate of the Average Treatment Effect (ATE)
+# Horvitz-Thompson-style estimator
+ipw <- mean(W * Y / p_scores - (1 - W) * Y / (1 - p_scores))
+
+# Output the IPW estimate
+ipw
+```
+
+```{r}
+# Number of bootstrap resamples
+B <- 1000
+
+# Sample size
+n <- nrow(data)
+
+# Set seed for reproducibility
+set.seed(100)
+
+# Create a vector to store the IPW estimate from each bootstrap sample
+boot_est <- vector(length = B)
+
+# Loop through B bootstrap samples
+for (b in 1:B) {
+  
+  # Generate a bootstrap sample (resample rows with replacement)
+  sample_boot <- sample(1:n, n, replace = TRUE)
+  dat_boot <- data[sample_boot, ]
+  
+  # Extract outcome and treatment for bootstrap sample
+  Y_boot <- dat_boot$y
+  W_boot <- dat_boot$z
+  
+  # Fit a propensity score model on the bootstrap sample
+  ps_boot <- glm(z ~ . - y, dat_boot, family = binomial)$fitted.values
+  
+  # Compute the IPW estimator for this bootstrap sample
+  boot_est[b] <- mean(W_boot * Y_boot / ps_boot - 
+                      (1 - W_boot) * Y_boot / (1 - ps_boot))
+}
+
+# Estimate the variance of the IPW estimator from the bootstrap distribution
+var_est <- var(boot_est)
+```
+
+```{r}
+# Compute the standard error from the bootstrap variance estimate
+se_boot <- sqrt(var_est)
+
+# Calculate the lower bound of the 95% confidence interval for the IPW estimate
+lower <- ipw - 1.96 * se_boot
+
+# Calculate the upper bound of the 95% confidence interval
+upper <- ipw + 1.96 * se_boot
+
+# Display the confidence interval
+c(lower, upper)
+```
+
+```{r}
+# Create a Love plot to assess covariate balance before and after propensity score weighting
+
+love.plot(
+  x = data[ , -c(1, 2, 13)],  # Remove columns not used as covariates (e.g., ID, treatment Z, outcome Y)
+  treat = W,                  # Treatment assignment vector
+  weights = (W / p_scores) + ((1 - W) / (1 - p_scores)),  # IPW weights (Horvitz-Thompson-style)
+  sample.names = c("Unweighted", "PSWeighted")            # Labels for before and after weighting
+)
+```
+
+```{r}
+# Compute the Hajek estimator for the Average Treatment Effect (ATE)
+# This is a stabilized version of the IPW estimator, where weights are normalized
+
+haj <- mean(W * Y / p_scores) / mean(W / p_scores) -     # Weighted mean outcome for treated group
+       mean((1 - W) * Y / (1 - p_scores)) / mean((1 - W) / (1 - p_scores))  # Weighted mean for control group
+
+# Display the Hajek ATE estimate
+haj
+```
+
+```{r}
+# Trim the dataset to include only units with propensity scores between 0.05 and 0.95
+# This removes extreme values near 0 or 1, which can cause unstable IPW estimates
+trim_dat1 <- data[as.logical((p_scores < 0.95) * (p_scores > 0.05)), ]
+
+# Extract the outcome and treatment vectors for the trimmed sample
+Y <- trim_dat1$y
+W <- trim_dat1$z
+
+# Extract the corresponding trimmed propensity scores
+pscores2 <- p_scores[as.logical((p_scores < 0.95) * (p_scores > 0.05))]
+
+# Compute IPW estimate on the trimmed dataset
+ipw2 <- mean(W * Y / pscores2 - (1 - W) * Y / (1 - pscores2))
+
+# Display the trimmed IPW estimate
+ipw2
+```
+
+```{r}
+# Fit an outcome regression model using only the treated units (z == 1)
+om1 <- lm(y ~ . - z, data = data[data$z == 1, ])
+
+# Fit an outcome regression model using only the control units (z == 0)
+om0 <- lm(y ~ . - z, data = data[data$z == 0, ])
+
+# Predict potential outcomes for *all* units using each model
+mu_1_est <- predict(om1, data)  # Predicted Y(1) for everyone
+mu_0_est <- predict(om0, data)  # Predicted Y(0) for everyone
+
+# AIPW estimator for treated potential outcome: combine regression + residuals weighted by inverse probability
+mu_1_dr <- mean(mu_1_est) + mean((data$z == 1) * (data$y - mu_1_est) / p_scores)
+
+# AIPW estimator for control potential outcome
+mu_0_dr <- mean(mu_0_est) + mean((data$z == 0) * (data$y - mu_0_est) / (1 - p_scores))
+
+# AIPW estimate of the average treatment effect (ATE)
+tau_est_aipw2 <- mu_1_dr - mu_0_dr
+
+# Output the AIPW estimate
+tau_est_aipw2
+
+```
+
+```{r}
+# Set seed for reproducibility
+set.seed(100)
+
+# Initialize vector to store AIPW estimates from each bootstrap sample
+boot_est <- vector(length = B)
+
+# Loop over B bootstrap replications
+for (b in 1:B) {
+  
+  # Generate a bootstrap sample by resampling with replacement
+  sample_boot <- sample(1:n, n, replace = TRUE)
+  dat_boot <- data[sample_boot, ]
+  
+  # Estimate propensity scores on the bootstrap sample
+  ps_boot <- glm(z ~ . - y, dat_boot, family = binomial)$fitted.values
+  
+  # Fit separate outcome models on treated and control units
+  om1 <- lm(y ~ . - z, dat_boot[dat_boot$z == 1, ])
+  om0 <- lm(y ~ . - z, dat_boot[dat_boot$z == 0, ])
+  
+  # Predict Y(1) and Y(0) for all units in the bootstrap sample
+  mu_1_estb <- predict(om1, dat_boot)
+  mu_0_estb <- predict(om0, dat_boot)
+  
+  # Compute doubly robust (AIPW) estimates for the treated and control outcomes
+  mu_1_drb <- mean(mu_1_estb) + mean((dat_boot$z == 1) * (dat_boot$y - mu_1_estb) / ps_boot)
+  mu_0_drb <- mean(mu_0_estb) + mean((dat_boot$z == 0) * (dat_boot$y - mu_0_estb) / (1 - ps_boot))
+  
+  # Store the ATE estimate for this bootstrap sample
+  boot_est[b] <- mu_1_drb - mu_0_drb
+}
+
+# Calculate the bootstrap variance of the AIPW estimator
+var_est <- var(boot_est)
+
+# Output the variance estimate
+var_est
+
+```
+
+```{r}
+# Compute the standard error of the AIPW estimator using the bootstrap variance
+se_aipw <- sqrt(var_est)
+
+# Compute the z-statistic: estimate divided by its standard error
+# This can be used to assess statistical significance (e.g., p-value)
+z_aipw <- tau_est_aipw2 / se_aipw
+
+```
+
+```{r}
+# Compute the lower bound of the 95% confidence interval
+lower <- tau_est_aipw2 - 1.96 * se_aipw
+
+# Compute the upper bound of the 95% confidence interval
+upper <- tau_est_aipw2 + 1.96 * se_aipw
+
+# Display the confidence interval as a vector
+c(lower, upper)
+
+```
+
+```{r}
+# Divide the propensity scores into 5 equal-sized strata (quintiles)
+# This is done using quantiles at 20%, 40%, 60%, 80%
+q.pscore <- quantile(p_scores, (1:(5 - 1)) / 5)
+
+# Cut the propensity scores into 5 bins based on these quantiles
+# Label the strata 1 through 5
+ps.strata <- cut(p_scores, breaks = c(0, q.pscore, 1), labels = 1:5)
+
+# Create a copy of the data and add propensity scores and strata labels
+dat <- data
+dat$pscores <- p_scores
+dat$strata <- ps.strata
+
+# Summarize each stratum: count of units, and min/max propensity score in the stratum
+dat %>%
+  group_by(strata) %>%
+  summarise(
+    nb = n(),                # Number of observations in the stratum
+    ps_min = min(pscores),   # Minimum propensity score in the stratum
+    ps_max = max(pscores)    # Maximum propensity score in the stratum
+  )
+
+```
+
+```{r}
+# For each propensity score stratum, compute:
+# - Number of observations (nb)
+# - Mean outcome for treated (y1_bar) and control (y0_bar)
+# - Variance of outcome for treated (s12) and control (s02)
+dat_sum <- dat %>%
+  group_by(strata) %>%
+  summarise(
+    nb = n(),                                 # Number of units in the stratum
+    y1_bar = mean(y[z == 1]),                 # Average outcome for treated
+    y0_bar = mean(y[z == 0]),                 # Average outcome for control
+    s12 = var(y[z == 1]),                     # Variance for treated
+    s02 = var(y[z == 0])                      # Variance for control
+  )
+
+# Estimate the overall ATE using a weighted average across strata
+# Each stratum's difference in means is weighted by its sample size
+tau_ps <- sum(dat_sum$nb * (dat_sum$y1_bar - dat_sum$y0_bar)) / sum(dat_sum$nb)
+
+# Output the stratified estimate of the treatment effect
+tau_ps
+```
+
+```{r}
+# Generate a Love plot to assess covariate balance before and after subclassification (stratification)
+# This checks whether covariates are more balanced within strata of the propensity score
+
+love.plot(
+  x = dat[ , -c(1, 2, 13, 14, 15, 16, 17)],  # Exclude irrelevant columns (e.g., ID, z, y, pscores, strata, etc.)
+  treat = dat$z,                            # Treatment assignment
+  subclass = dat$strata,                    # Subclassification strata (from propensity scores)
+  sample.names = c("Unweighted", "PSWeighted")  # Labels for pre- and post-stratification
+)
+
+```
+
+```{r}
+# For each stratum, calculate:
+# - Total number of units (nb)
+# - Number of treated (n1) and control (n0) units
+# - Variance of outcome for treated (s12) and control (s02)
+dat_sum <- dat %>%
+  group_by(strata) %>%
+  summarise(
+    nb = n(),                      # Total number of units in the stratum
+    n1 = sum(z == 1),              # Count of treated units
+    n0 = sum(z == 0),              # Count of control units
+    s12 = var(y[z == 1]),          # Variance in treated group
+    s02 = var(y[z == 0])           # Variance in control group
+  )
+
+# Compute the total number of units across all strata
+N <- sum(dat_sum$nb)
+
+# Estimate the variance of the stratified ATE using Neyman's formula for weighted means
+# This weights each stratum's variance contribution by (nb^2 / N^2)
+var_ps <- sum((dat_sum$nb^2) * ((dat_sum$s12 / dat_sum$n1) + (dat_sum$s02 / dat_sum$n0))) / N^2
+
+# Compute the standard error of the stratified ATE estimate
+se_ps <- sqrt(var_ps)
+
+# Output the standard error
+se_ps
+lower <- tau_ps - 1.96 * se_ps
+upper <- tau_ps + 1.96 * se_ps
+c(lower, upper)
+
+```
+
