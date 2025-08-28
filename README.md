@@ -41,10 +41,9 @@ Example: Estimated treatment effect using multiple causal methods.
 ---
 
 ## How to View 
-- [View interactive poster (HTML)](./index.html)
 - [Download PDF Poster](./Stat_Poster.pdf)
-- You can explore the interactive version of this research poster here:
-[**View Poster**](https://chimbililohith.github.io/growth_mindset/) 
+- You can explore the html version of this project here:
+[**View html**](https://chimbililohith.github.io/growth_mindset/) 
 
 ---
 
