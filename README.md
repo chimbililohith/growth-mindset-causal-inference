@@ -49,7 +49,7 @@ The objective of this project is to **estimate the average treatment effect (ATE
 
 ## Repository Contents
 - `Final_Poster.Rmd` — R Markdown source file.  
-- `Final_Poster.html` — Interactive version of the poster.  
+- `index.html` — HTML version.
 - `Stat_Poster.pdf` — Final poster for presentation.  
 - `data.csv` — Synthetic dataset or script to generate data.  
 - `ATE_results.png` — ATE results.
